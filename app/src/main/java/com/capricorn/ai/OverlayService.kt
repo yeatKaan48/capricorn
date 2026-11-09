@@ -31,7 +31,7 @@ class OverlayService : Service() {
     private fun dp(x: Int) = (x * resources.displayMetrics.density).toInt()
 
     override fun onBind(i: Intent?): IBinder? = null
-    override fun onStartCommand(i: Intent?, f: Int, id: Int) = START_NOT_STICKY
+    override fun onStartCommand(i: Intent?, f: Int, id: Int): Int { if (::orb.isInitialized) orb.reload(); return START_NOT_STICKY }
 
     override fun onCreate() {
         super.onCreate()
