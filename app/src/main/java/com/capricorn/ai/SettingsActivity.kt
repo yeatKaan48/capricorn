@@ -29,13 +29,13 @@ class SettingsActivity : Activity() {
             setTextColor(Theme.CYAN)
             typeface = android.graphics.Typeface.MONOSPACE
         })
-        content.addView(label("ANTHROPIC API KEY"))
-        apiKey = field(SecureStore.getApiKey(this), "sk-ant-…", 1).apply {
+        content.addView(label("GOOGLE GEMINI API KEY"))
+        apiKey = field(SecureStore.getApiKey(this), "Google AI Studio API key", 1).apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
         content.addView(apiKey)
         content.addView(label("MODEL ID"))
-        model = field(p.getString("model", ClaudeApi.DEFAULT_MODEL) ?: ClaudeApi.DEFAULT_MODEL, "claude-sonnet-5-5", 1)
+        model = field(p.getString("model", ClaudeApi.DEFAULT_MODEL) ?: ClaudeApi.DEFAULT_MODEL, "gemini-3.5-flash-lite", 1)
         content.addView(model)
         content.addView(label("CAPRI PERSONALITY / SYSTEM PROMPT"))
         persona = field(p.getString("persona", ClaudeApi.DEFAULT_PERSONA) ?: ClaudeApi.DEFAULT_PERSONA, "Capri kişiliği", 9)
@@ -49,7 +49,7 @@ class SettingsActivity : Activity() {
         content.addView(Theme.chip(this, "BACK", Theme.PINK).apply { setOnClickListener { finish() } },
             LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         content.addView(TextView(this).apply {
-            text = "API key Android Keystore ile cihaz üzerinde şifrelenerek saklanır. API kullanımı Anthropic hesabında ücret oluşturabilir. Model erişimi hesabına bağlıdır."
+            text = "API key Android Keystore ile cihaz üzerinde şifrelenerek saklanır. API kullanımı Google AI Studio hesabında ücret oluşturabilir. Model erişimi hesabına bağlıdır."
             textSize = 11f
             setTextColor(Theme.MUTED)
             setPadding(0, dp(16), 0, 0)
