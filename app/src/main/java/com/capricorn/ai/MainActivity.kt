@@ -1,197 +1,252 @@
 package com.capricorn.ai
 
-import android.Manifest
 import android.app.Activity
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Typeface
-import android.net.Uri
-import android.os.*
-import android.provider.Settings
+import android.os.Bundle
 import android.speech.RecognizerIntent
-import android.view.*
+import android.speech.tts.TextToSpeech
+import android.view.Gravity
+import android.view.inputmethod.EditorInfo
 import android.widget.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
+import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
-    private lateinit var list: LinearLayout
+    private lateinit var messagesBox: LinearLayout
     private lateinit var scroll: ScrollView
     private lateinit var input: EditText
-    private lateinit var status: TextView
+    private lateinit var sendButton: TextView
+    private lateinit var state: TextView
+    private val executor = Executors.newSingleThreadExecutor()
     private var history = JSONArray()
-    private val ui = Handler(Looper.getMainLooper())
+    private var tts: TextToSpeech? = null
+    private var speakReplies = false
+    private var waiting = false
 
-    private fun prefs() = getSharedPreferences("c", MODE_PRIVATE)
-    private fun on() = prefs().getBoolean("on", true)
-    private fun dp(x: Int) = Theme.dp(this, x)
+    private fun prefs() = getSharedPreferences("capricorn", MODE_PRIVATE)
+    private fun dp(v: Int) = Theme.dp(this, v)
 
-    override fun onCreate(b: Bundle?) {
-        super.onCreate(b)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         window.statusBarColor = Theme.BG
-        try { history = JSONArray(prefs().getString("h", "[]")) } catch (e: Exception) {}
+        window.navigationBarColor = Theme.BG
+        window.decorView.setBackgroundColor(Theme.BG)
+        loadHistory()
+        buildUi()
+        tts = TextToSpeech(this) { result ->
+            if (result == TextToSpeech.SUCCESS) tts?.language = Locale("tr", "TR")
+        }
+    }
 
+    private fun loadHistory() {
+        history = try { JSONArray(prefs().getString("history", "[]")) } catch (_: Exception) { JSONArray() }
+        // API mesajları user/assistant çiftleri olarak tutulur; bozuk kayıtlar sıfırlanır.
+        if (history.length() > 80) {
+            val trimmed = JSONArray()
+            for (i in history.length() - 80 until history.length()) trimmed.put(history.getJSONObject(i))
+            history = trimmed
+        }
+    }
+
+    private fun buildUi() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(28), dp(14), dp(12))
             setBackgroundColor(Theme.BG)
-            setPadding(dp(12), dp(40), dp(12), dp(12))
         }
-        val title = TextView(this).apply {
-            text = "CAPRICORN //"
-            setTextColor(Theme.CY)
+        val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val brand = TextView(this).apply {
+            text = "CAPRICORN  //  NIGHT CITY"
+            textSize = 17f
+            setTextColor(Theme.CYAN)
+            typeface = Typeface.create("monospace", Typeface.BOLD)
+        }
+        state = TextView(this).apply {
+            text = "● READY"
+            textSize = 10f
+            setTextColor(Theme.YELLOW)
             typeface = Typeface.MONOSPACE
-            textSize = 18f
+            setPadding(dp(6), 0, dp(6), 0)
         }
-        status = Theme.chip(this, "", Theme.CY) {
-            prefs().edit().putBoolean("on", !on()).apply()
-            refresh()
+        val settings = Theme.chip(this, "⚙", Theme.CYAN).apply {
+            setOnClickListener { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) }
         }
-        val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        head.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
-        head.addView(status)
-        head.addView(Theme.chip(this, "⬡", Theme.YL) { startBubble() },
-            LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(6) })
-        head.addView(Theme.chip(this, "⚙", Theme.CY) { startActivity(Intent(this, SettingsActivity::class.java)) },
-            LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(6) })
+        header.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(state)
+        header.addView(settings, LinearLayout.LayoutParams(dp(44), dp(42)).apply { marginStart = dp(6) })
 
-        list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scroll = ScrollView(this).apply { addView(list) }
+        val sub = TextView(this).apply {
+            text = "PERSONAL AI INTERFACE  •  SECURE SESSION"
+            textSize = 9f
+            letterSpacing = 0.12f
+            setTextColor(Theme.MUTED)
+            typeface = Typeface.MONOSPACE
+            setPadding(0, dp(5), 0, dp(10))
+        }
 
+        messagesBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(2), dp(8), dp(2), dp(12)) }
+        scroll = ScrollView(this).apply {
+            isFillViewport = true
+            background = Theme.panel(this@MainActivity, 0xFF17313D.toInt(), 0xFF070B12.toInt())
+            addView(messagesBox)
+        }
+
+        val composer = LinearLayout(this).apply { gravity = Gravity.BOTTOM; setPadding(0, dp(10), 0, 0) }
         input = EditText(this).apply {
-            typeface = Typeface.MONOSPACE
+            hint = "> Capri'ye mesaj yaz..."
+            setHintTextColor(Theme.MUTED)
+            setTextColor(Theme.TEXT)
             textSize = 14f
-            setTextColor(Theme.TX)
-            setHintTextColor(0xFF4A6A7A.toInt())
-            background = Theme.box(this@MainActivity, Theme.CY)
-            setPadding(dp(10), dp(10), dp(10), dp(10))
+            typeface = Typeface.MONOSPACE
+            background = Theme.panel(this@MainActivity, Theme.CYAN)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            minLines = 1
             maxLines = 4
+            imeOptions = EditorInfo.IME_ACTION_SEND
+            setOnEditorActionListener { _, action, _ ->
+                if (action == EditorInfo.IME_ACTION_SEND) { sendCurrent(); true } else false
+            }
         }
-        val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        row.addView(input, LinearLayout.LayoutParams(0, -2, 1f))
-        row.addView(Theme.chip(this, "🎤", Theme.YL) { listen() },
-            LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(6) })
-        row.addView(Theme.chip(this, "▶", Theme.CY) {
-            val t = input.text.toString().trim()
-            input.setText("")
-            send(t)
-        }, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(6) })
+        val mic = Theme.chip(this, "MIC", Theme.YELLOW).apply { setOnClickListener { startVoiceInput() } }
+        sendButton = Theme.chip(this, "SEND", Theme.CYAN).apply { setOnClickListener { sendCurrent() } }
+        composer.addView(input, LinearLayout.LayoutParams(0, -2, 1f))
+        composer.addView(mic, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(6) })
+        composer.addView(sendButton, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(6) })
 
-        root.addView(head)
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(8); bottomMargin = dp(8) })
-        root.addView(row)
+        val footer = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(7), 0, 0) }
+        val clear = TextView(this).apply {
+            text = "CLEAR CHAT"
+            textSize = 10f
+            setTextColor(Theme.PINK)
+            typeface = Typeface.MONOSPACE
+            setOnClickListener { history = JSONArray(); persistHistory(); messagesBox.removeAllViews(); welcome() }
+        }
+        val voice = TextView(this).apply {
+            text = "VOICE REPLY: OFF"
+            textSize = 10f
+            setTextColor(Theme.YELLOW)
+            typeface = Typeface.MONOSPACE
+            setOnClickListener {
+                speakReplies = !speakReplies
+                text = if (speakReplies) "VOICE REPLY: ON" else "VOICE REPLY: OFF"
+                if (!speakReplies) tts?.stop()
+            }
+        }
+        footer.addView(clear, LinearLayout.LayoutParams(0, -2, 1f))
+        footer.addView(voice)
+
+        root.addView(header)
+        root.addView(sub)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        root.addView(composer)
+        root.addView(footer)
         setContentView(root)
 
         for (i in 0 until history.length()) {
-            val m = history.getJSONObject(i)
-            addMsg(m.getString("role"), m.getString("content"))
+            val item = history.optJSONObject(i) ?: continue
+            addMessage(item.optString("role"), item.optString("content"), false)
         }
-        refresh()
+        if (history.length() == 0) welcome()
     }
 
-    override fun onResume() {
-        super.onResume()
-        refresh()
+    private fun welcome() {
+        addMessage("assistant", "Bağlantı hazır. Ben Capri. Ne üzerinde çalışıyoruz?", false)
     }
 
-    private fun refresh() {
-        val o = on()
-        val c = if (o) Theme.CY else Theme.MG
-        status.text = if (o) "● ONLINE" else "○ KAPALI"
-        status.setTextColor(c)
-        status.background = Theme.box(this, c)
-        input.isEnabled = o
-        input.hint = if (o) "> mesajını yaz..." else "> izin kapalı"
-    }
-
-    private fun addMsg(role: String, msg: String): TextView {
-        val me = role == "user"
-        val tv = TextView(this).apply {
-            text = (if (me) "SEN> " else "CAPRI> ") + msg
-            setTextColor(Theme.TX)
+    private fun addMessage(role: String, text: String, scrollDown: Boolean = true): TextView {
+        val isUser = role == "user"
+        val wrapper = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = if (isUser) Gravity.END else Gravity.START
+            setPadding(dp(5), dp(5), dp(5), dp(5))
+        }
+        val tag = TextView(this).apply {
+            this.text = if (isUser) "YOU  /  OPERATOR" else "CAPRI  /  SYSTEM"
+            textSize = 9f
             typeface = Typeface.MONOSPACE
+            setTextColor(if (isUser) Theme.PINK else Theme.CYAN)
+        }
+        val body = TextView(this).apply {
+            this.text = text
             textSize = 14f
-            setPadding(dp(10), dp(8), dp(10), dp(8))
-            background = Theme.box(this@MainActivity, if (me) Theme.MG else Theme.CY)
+            setTextColor(Theme.TEXT)
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            setPadding(dp(11), dp(9), dp(11), dp(9))
+            background = Theme.panel(this@MainActivity, if (isUser) Theme.PINK else 0xFF176071.toInt())
+            maxWidth = (resources.displayMetrics.widthPixels * 0.84f).toInt()
         }
-        list.addView(tv, LinearLayout.LayoutParams(-2, -2).apply {
-            topMargin = dp(8)
-            gravity = if (me) Gravity.END else Gravity.START
-        })
-        scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
-        return tv
+        wrapper.addView(tag)
+        wrapper.addView(body)
+        messagesBox.addView(wrapper, LinearLayout.LayoutParams(-1, -2))
+        if (scrollDown) scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
+        return body
     }
 
-    private fun save() {
-        while (history.length() > 40) { history.remove(0); history.remove(0) }
-        prefs().edit().putString("h", history.toString()).apply()
+    private fun sendCurrent() {
+        val text = input.text.toString().trim()
+        if (text.isEmpty() || waiting) return
+        input.setText("")
+        sendMessage(text)
     }
 
-    private fun send(text: String) {
-        if (!on() || text.isBlank()) return
-        if (prefs().getString("key", "").isNullOrBlank()) {
-            addMsg("assistant", "API anahtarı yok. Sağ üstteki ⚙ ayarlardan gir.")
+    private fun sendMessage(text: String) {
+        if (SecureStore.getApiKey(this).isBlank()) {
+            addMessage("assistant", "Önce ⚙ Ayarlar bölümünden Anthropic API anahtarını kaydet.")
             return
         }
-        if (text.lowercase(Locale("tr", "TR")).contains("hafızayı sil")) {
-            history = JSONArray(); save(); list.removeAllViews()
-            addMsg("assistant", "Hafıza temizlendi.")
-            return
-        }
-        addMsg("user", text)
         history.put(JSONObject().put("role", "user").put("content", text))
-        val w = addMsg("assistant", "...")
-        Thread {
-            var err: String? = null
-            val r = try { Claude.ask(this, history) } catch (e: Exception) { err = e.message; null }
-            ui.post {
-                if (r == null) {
-                    history.remove(history.length() - 1)
-                    w.text = "ERR> $err"
+        addMessage("user", text)
+        val placeholder = addMessage("assistant", "İşleniyor…")
+        waiting = true
+        sendButton.isEnabled = false
+        state.text = "● THINKING"
+        executor.execute {
+            val answer = try { ClaudeApi.ask(this, history) } catch (e: Exception) { "ERROR: ${e.message ?: "Bilinmeyen bağlantı hatası"}" }
+            runOnUiThread {
+                waiting = false
+                sendButton.isEnabled = true
+                state.text = "● READY"
+                placeholder.text = answer
+                if (!answer.startsWith("ERROR:")) {
+                    history.put(JSONObject().put("role", "assistant").put("content", answer))
+                    persistHistory()
+                    if (speakReplies) tts?.speak(answer, TextToSpeech.QUEUE_FLUSH, null, "capri_reply")
                 } else {
-                    history.put(JSONObject().put("role", "assistant").put("content", r))
-                    save()
-                    w.text = "CAPRI> $r"
-                    scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+                    // API başarısızsa kullanıcı mesajını geçmişten çıkar; tekrar denenebilir.
+                    if (history.length() > 0) history.remove(history.length() - 1)
                 }
+                scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
             }
-        }.start()
-    }
-
-    private fun listen() {
-        if (!on()) return
-        try {
-            startActivityForResult(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR"), 1)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Ses tanıma bulunamadı", Toast.LENGTH_SHORT).show()
         }
     }
 
-    override fun onActivityResult(rc: Int, res: Int, d: Intent?) {
-        super.onActivityResult(rc, res, d)
-        if (rc == 1 && res == RESULT_OK) {
-            d?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { send(it) }
+    private fun persistHistory() { prefs().edit().putString("history", history.toString()).apply() }
+
+    private fun startVoiceInput() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Capri'ye söyle")
+        }
+        try { startActivityForResult(intent, 41) }
+        catch (_: Exception) { Toast.makeText(this, "Bu cihazda ses tanıma servisi bulunamadı.", Toast.LENGTH_LONG).show() }
+    }
+
+    @Deprecated("Legacy activity result API retained for broad Android compatibility")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 41 && resultCode == RESULT_OK) {
+            data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { sendMessage(it) }
         }
     }
 
-    private fun startBubble() {
-        if (!on()) { Toast.makeText(this, "İzin kapalı", Toast.LENGTH_SHORT).show(); return }
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO, "android.permission.POST_NOTIFICATIONS"), 20)
-            return
-        }
-        if (!Settings.canDrawOverlays(this)) {
-            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-            Toast.makeText(this, "İzni aç, geri dönüp ⬡'a bas", Toast.LENGTH_LONG).show()
-            return
-        }
-        startForegroundService(Intent(this, OverlayService::class.java))
-        moveTaskToBack(true)
-    }
-
-    override fun onRequestPermissionsResult(c: Int, p: Array<out String>, r: IntArray) {
-        if (c == 20 && r.isNotEmpty() && r[0] == PackageManager.PERMISSION_GRANTED) startBubble()
+    override fun onDestroy() {
+        executor.shutdownNow()
+        tts?.stop()
+        tts?.shutdown()
+        super.onDestroy()
     }
 }

@@ -1,5 +1,8 @@
-name: build
-on: [push, workflow_dispatch]
+name: Capricorn Android Build
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -12,8 +15,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.9
-      - run: gradle assembleDebug
-      - uses: actions/upload-artifact@v4
+      - name: Build debug APK
+        run: gradle --no-daemon assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: capricorn-apk
+          name: capricorn-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

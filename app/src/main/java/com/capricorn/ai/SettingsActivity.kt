@@ -1,115 +1,98 @@
 package com.capricorn.ai
 
 import android.app.Activity
-import android.content.Intent
-import android.graphics.Typeface
-import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
 import android.widget.*
-import java.io.File
 
 class SettingsActivity : Activity() {
-    private lateinit var key: EditText
+    private lateinit var apiKey: EditText
     private lateinit var model: EditText
-    private lateinit var sys: EditText
+    private lateinit var persona: EditText
+    private fun dp(v: Int) = Theme.dp(this, v)
+    private fun prefs() = getSharedPreferences("capricorn", MODE_PRIVATE)
 
-    private fun prefs() = getSharedPreferences("c", MODE_PRIVATE)
-    private fun dp(x: Int) = Theme.dp(this, x)
-    private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
-
-    private fun label(t: String) = TextView(this).apply {
-        text = "\n// $t"
-        setTextColor(Theme.YL)
-        typeface = Typeface.MONOSPACE
-        textSize = 13f
-    }
-
-    private fun field(v: String, h: String, lines: Int = 1) = EditText(this).apply {
-        setText(v)
-        hint = h
-        typeface = Typeface.MONOSPACE
-        textSize = 13f
-        setTextColor(Theme.TX)
-        setHintTextColor(0xFF4A6A7A.toInt())
-        background = Theme.box(this@SettingsActivity, Theme.CY)
-        setPadding(dp(10), dp(10), dp(10), dp(10))
-        if (lines > 1) { minLines = lines; gravity = Gravity.TOP }
-    }
-
-    private fun btn(t: String, c: Int, f: () -> Unit) = Theme.chip(this, t, c, f).apply {
-        gravity = Gravity.CENTER
-        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }
-    }
-
-    override fun onCreate(b: Bundle?) {
-        super.onCreate(b)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         window.statusBarColor = Theme.BG
+        window.navigationBarColor = Theme.BG
         val p = prefs()
-        key = field(p.getString("key", "") ?: "", "sk-ant-...").apply {
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            typeface = Typeface.MONOSPACE
-        }
-        model = field(p.getString("model", "claude-sonnet-5-5") ?: "claude-sonnet-5-5", "model")
-        sys = field(p.getString("sys", Claude.PERSONA) ?: Claude.PERSONA, "kişilik", 8)
-        val names = listOf("Bekleme", "Dinleme", "Düşünme", "Konuşma")
-        val col = LinearLayout(this).apply {
+        val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(28), dp(16), dp(24))
             setBackgroundColor(Theme.BG)
-            setPadding(dp(14), dp(40), dp(14), dp(24))
-            addView(TextView(context).apply {
-                text = "// AYARLAR"
-                setTextColor(Theme.CY)
-                typeface = Typeface.MONOSPACE
-                textSize = 20f
-            })
-            addView(label("API ANAHTARI")); addView(key)
-            addView(label("MODEL")); addView(model)
-            addView(label("KİŞİLİK")); addView(sys)
-            addView(btn("Varsayılan Capricorn kişiliği", Theme.CY) { sys.setText(Claude.PERSONA) })
-            addView(label("SPRITE KARELERİ (sırayla seç, tek GIF de olur)"))
-            for (i in 0..3) addView(btn(names[i] + " karelerini seç", Theme.YL) { pick(i) })
-            addView(btn("Spriteları sıfırla", Theme.MG) {
-                File(filesDir, "sprites").deleteRecursively()
-                toast("Sıfırlandı")
-            })
         }
-        setContentView(ScrollView(this).apply { setBackgroundColor(Theme.BG); addView(col) })
+        content.addView(TextView(this).apply {
+            text = "// SYSTEM CONFIGURATION"
+            textSize = 19f
+            setTextColor(Theme.CYAN)
+            typeface = android.graphics.Typeface.MONOSPACE
+        })
+        content.addView(label("ANTHROPIC API KEY"))
+        apiKey = field(SecureStore.getApiKey(this), "sk-ant-…", 1).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        content.addView(apiKey)
+        content.addView(label("MODEL ID"))
+        model = field(p.getString("model", ClaudeApi.DEFAULT_MODEL) ?: ClaudeApi.DEFAULT_MODEL, "claude-sonnet-5-5", 1)
+        content.addView(model)
+        content.addView(label("CAPRI PERSONALITY / SYSTEM PROMPT"))
+        persona = field(p.getString("persona", ClaudeApi.DEFAULT_PERSONA) ?: ClaudeApi.DEFAULT_PERSONA, "Capri kişiliği", 9)
+        content.addView(persona)
+        content.addView(Theme.chip(this, "RESTORE DEFAULT PERSONA", Theme.YELLOW).apply {
+            setOnClickListener { persona.setText(ClaudeApi.DEFAULT_PERSONA) }
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+        content.addView(Theme.chip(this, "SAVE CONFIGURATION", Theme.CYAN).apply {
+            setOnClickListener { save(); finish() }
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+        content.addView(Theme.chip(this, "BACK", Theme.PINK).apply { setOnClickListener { finish() } },
+            LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        content.addView(TextView(this).apply {
+            text = "API key Android Keystore ile cihaz üzerinde şifrelenerek saklanır. API kullanımı Anthropic hesabında ücret oluşturabilir. Model erişimi hesabına bağlıdır."
+            textSize = 11f
+            setTextColor(Theme.MUTED)
+            setPadding(0, dp(16), 0, 0)
+        })
+        setContentView(ScrollView(this).apply { setBackgroundColor(Theme.BG); addView(content) })
+    }
+
+    private fun label(value: String) = TextView(this).apply {
+        text = "
+// $value"
+        textSize = 11f
+        setTextColor(Theme.YELLOW)
+        typeface = android.graphics.Typeface.MONOSPACE
+    }
+
+    private fun field(value: String, hintText: String, lines: Int) = EditText(this).apply {
+        setText(value)
+        hint = hintText
+        setHintTextColor(Theme.MUTED)
+        setTextColor(Theme.TEXT)
+        textSize = 13f
+        background = Theme.panel(this@SettingsActivity, Theme.CYAN)
+        setPadding(dp(11), dp(10), dp(11), dp(10))
+        minLines = lines
+        maxLines = if (lines > 1) 16 else 1
+        gravity = if (lines > 1) Gravity.TOP else Gravity.CENTER_VERTICAL
+    }
+
+    private fun save() {
+        try {
+            SecureStore.saveApiKey(this, apiKey.text.toString())
+            prefs().edit()
+                .putString("model", model.text.toString().trim().ifBlank { ClaudeApi.DEFAULT_MODEL })
+                .putString("persona", persona.text.toString().trim().ifBlank { ClaudeApi.DEFAULT_PERSONA })
+                .apply()
+            Toast.makeText(this, "Ayarlar kaydedildi.", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Kaydetme hatası: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onPause() {
         super.onPause()
-        prefs().edit()
-            .putString("key", key.text.toString().trim())
-            .putString("model", model.text.toString().trim().ifBlank { "claude-sonnet-5-5" })
-            .putString("sys", sys.text.toString().ifBlank { Claude.PERSONA })
-            .apply()
-    }
-
-    private fun pick(s: Int) {
-        val i = Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*")
-            .addCategory(Intent.CATEGORY_OPENABLE)
-            .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-        startActivityForResult(i, 10 + s)
-    }
-
-    override fun onActivityResult(rc: Int, res: Int, d: Intent?) {
-        super.onActivityResult(rc, res, d)
-        if (rc < 10 || rc > 13 || res != RESULT_OK || d == null) return
-        val dir = File(filesDir, "sprites/${rc - 10}")
-        dir.deleteRecursively()
-        dir.mkdirs()
-        val uris = ArrayList<Uri>()
-        val cd = d.clipData
-        if (cd != null) { for (i in 0 until cd.itemCount) uris.add(cd.getItemAt(i).uri) }
-        else d.data?.let { uris.add(it) }
-        uris.forEachIndexed { i, u ->
-            val ext = if (contentResolver.getType(u) == "image/gif") "gif" else "png"
-            contentResolver.openInputStream(u)?.use { inp ->
-                File(dir, "%03d.%s".format(i, ext)).outputStream().use { out -> inp.copyTo(out) }
-            }
-        }
-        toast("${uris.size} kare kaydedildi")
+        // Ayarlar yalnızca SAVE düğmesine basıldığında kalıcı olarak yazılır.
     }
 }
