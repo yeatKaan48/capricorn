@@ -106,6 +106,9 @@ class OverlayService : Service() {
         if (!getSharedPreferences("c", MODE_PRIVATE).getBoolean("on", true)) { setLabel("İzin kapalı"); return }
         if (active) stopAll() else { active = true; listen() }
     }
+        if (!getSharedPreferences("c", MODE_PRIVATE).getBoolean("on", true)) { setLabel("İzin kapalı"); return }
+        if (active) stopAll() else { active = true; listen() }
+    }
 
     private fun stopAll(msg: String? = null) {
         active = false; sr?.cancel(); tts?.stop(); paint(false)
