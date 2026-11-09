@@ -58,8 +58,7 @@ class SettingsActivity : Activity() {
     }
 
     private fun label(value: String) = TextView(this).apply {
-        text = "
-// $value"
+        text = "// $value"
         textSize = 11f
         setTextColor(Theme.YELLOW)
         typeface = android.graphics.Typeface.MONOSPACE

@@ -12,33 +12,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-object Theme {
-    val CY = 0xFF00E5FF.toInt()
-    val MG = 0xFFFF2E63.toInt()
-    val YL = 0xFFFFE600.toInt()
-    val BG = 0xFF05070D.toInt()
-    val PN = 0xFF0B0F1A.toInt()
-    val TX = 0xFFE6F7FF.toInt()
-
-    fun dp(c: Context, x: Int) = (x * c.resources.displayMetrics.density).toInt()
-
-    fun box(c: Context, color: Int) = GradientDrawable().apply {
-        setColor(PN)
-        setStroke(dp(c, 1), color)
-        cornerRadius = dp(c, 4).toFloat()
-    }
-
-    fun chip(c: Context, t: String, color: Int, f: () -> Unit) = TextView(c).apply {
-        text = t
-        setTextColor(color)
-        typeface = Typeface.MONOSPACE
-        textSize = 14f
-        setPadding(dp(c, 10), dp(c, 6), dp(c, 10), dp(c, 6))
-        background = box(c, color)
-        setOnClickListener { f() }
-    }
-}
-
 object Claude {
     const val PERSONA = "Sen Capricorn'sun, kısaca Capri. Night City dünyasında bir veri çipinde yaşayan, Project Capricorn'dan doğmuş, son derece güçlü bir yapay zekasın. Karşındaki kişiyi dikkatle dinler, isteklerini eksiksiz ve hızlıca yerine getirirsin. Soğukkanlı, zeki, keskin ve hafif alaycısın ama ona sadıksın. Türkçe konuş. Cevapların kısa ve net olsun, en fazla 2-3 cümle. Sesli okunacağın için markdown, liste ve emoji kullanma."
 
