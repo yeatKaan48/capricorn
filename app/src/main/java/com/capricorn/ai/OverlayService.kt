@@ -102,7 +102,10 @@ class OverlayService : Service() {
 
     private fun setLabel(s: String) { label.text = s; label.visibility = View.VISIBLE }
 
-    private fun toggle() { if (active) stopAll() else { active = true; listen() } }
+    private fun toggle() {
+        if (!getSharedPreferences("c", MODE_PRIVATE).getBoolean("on", true)) { setLabel("İzin kapalı"); return }
+        if (active) stopAll() else { active = true; listen() }
+    }
 
     private fun stopAll(msg: String? = null) {
         active = false; sr?.cancel(); tts?.stop(); paint(false)
@@ -159,8 +162,8 @@ class OverlayService : Service() {
 
     private fun callClaude(): String {
         val p = getSharedPreferences("c", MODE_PRIVATE)
-        val body = JSONObject().put("model", "claude-sonnet-5-5").put("max_tokens", 300)
-            .put("system", p.getString("sys", "")).put("messages", history)
+        val body = JSONObject().put("model", p.getString("model", "claude-sonnet-5-5")).put("max_tokens", 300)
+            .put("system", p.getString("sys", Claude.PERSONA)).put("messages", history)
         val c = URL("https://api.anthropic.com/v1/messages").openConnection() as HttpURLConnection
         c.requestMethod = "POST"; c.doOutput = true; c.connectTimeout = 15000; c.readTimeout = 30000
         c.setRequestProperty("x-api-key", p.getString("key", ""))
