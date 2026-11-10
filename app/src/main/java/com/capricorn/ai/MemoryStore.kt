@@ -86,4 +86,4 @@ object MemoryStore {
     fun count(context: Context): Int = synchronized(lock) {
         read(context).length()
     }
-}\n
+}
