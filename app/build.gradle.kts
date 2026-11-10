@@ -16,7 +16,7 @@ android {
     signingConfigs {
         getByName("debug") {
             storeFile = file("capri-debug.keystore")
-            storeType = "jks"
+            storeType = "pkcs12"
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
