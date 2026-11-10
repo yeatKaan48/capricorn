@@ -1,4 +1,3 @@
-
 name: Capricorn Android Build
 
 on:
@@ -16,23 +15,21 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 17
+          java-version: '17'
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: 8.9
+          gradle-version: '8.9'
 
       - name: Build debug APK
         shell: bash
         run: |
-          set +e
+          set -o pipefail
           gradle --no-daemon assembleDebug --stacktrace --info 2>&1 | tee build.log
-          BUILD_STATUS=${PIPESTATUS[0]}
-          echo "BUILD_STATUS=$BUILD_STATUS" >> "$GITHUB_ENV"
-          exit "$BUILD_STATUS"
 
       - name: Show compilation errors
         if: always()
+        shell: bash
         run: |
           echo "## Capricorn Build Errors" >> "$GITHUB_STEP_SUMMARY"
           if [ -f build.log ]; then
