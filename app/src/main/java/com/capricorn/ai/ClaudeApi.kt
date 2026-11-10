@@ -39,9 +39,7 @@ object ClaudeApi {
             ?.takeIf { it.isNotBlank() }
             ?: DEFAULT_MODEL
 
-        val system = prefs.getString("persona", DEFAULT_PERSONA)
-            ?.takeIf { it.isNotBlank() }
-            ?: DEFAULT_PERSONA
+        val system = CapriCore.buildSystemPrompt(context)
 
         val contents = buildContents(messages)
 
