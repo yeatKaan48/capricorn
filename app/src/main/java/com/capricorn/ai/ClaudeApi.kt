@@ -67,9 +67,9 @@ object ClaudeApi {
 
     private fun buildContents(messages: JSONArray): JSONArray {
         val items = ArrayList<Pair<String, String>>()
-        val start = (messages.length() - MAX_HISTORY_MESSAGES).coerceAtLeast(0)
+        val start = (messages.length - MAX_HISTORY_MESSAGES).coerceAtLeast(0)
 
-        for (i in start until messages.length()) {
+        for (i in start until messages.length) {
             val message = messages.optJSONObject(i) ?: continue
             val role = message.optString("role")
             val content = message.optString("content")
@@ -84,10 +84,10 @@ object ClaudeApi {
             items.removeAt(0)
         }
 
-        var totalChars = items.sumOf { it.second.length() }
+        var totalChars = items.sumOf { it.second.length }
 
         while (items.size > 1 && totalChars > MAX_HISTORY_CHARS) {
-            totalChars -= items.removeAt(0).second.length()
+            totalChars -= items.removeAt(0).second.length
         }
 
         return JSONArray().apply {
@@ -151,7 +151,7 @@ object ClaudeApi {
 
             val result = StringBuilder()
 
-            for (i in 0 until parts.length()) {
+            for (i in 0 until parts.length) {
                 val part = parts.optJSONObject(i) ?: continue
                 result.append(part.optString("text"))
             }
