@@ -92,8 +92,8 @@ class SettingsActivity : Activity() {
         content.addView(label("CAPRI PERSONALITY / SYSTEM PROMPT"))
 
         persona = field(
-            p.getString("persona", ClaudeApi.DEFAULT_PERSONA)
-                ?: ClaudeApi.DEFAULT_PERSONA,
+            p.getString("persona", CapriCore.DEFAULT_PERSONA)
+                ?: CapriCore.DEFAULT_PERSONA,
             "Capri kişiliği",
             9
         )
@@ -102,7 +102,7 @@ class SettingsActivity : Activity() {
         content.addView(
             Theme.chip(this, "RESTORE DEFAULT PERSONA", Theme.YELLOW).apply {
                 setOnClickListener {
-                    persona.setText(ClaudeApi.DEFAULT_PERSONA)
+                    persona.setText(CapriCore.DEFAULT_PERSONA)
                 }
             },
             LinearLayout.LayoutParams(-1, -2).apply {
@@ -204,7 +204,7 @@ class SettingsActivity : Activity() {
                 .putString(
                     "persona",
                     persona.text.toString().trim()
-                        .ifBlank { ClaudeApi.DEFAULT_PERSONA }
+                        .ifBlank { CapriCore.DEFAULT_PERSONA }
                 )
                 .apply()
 
