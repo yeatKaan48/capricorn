@@ -8,9 +8,11 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object ClaudeApi {
+
     const val DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
-    const val DEFAULT_PERSONA = "Sen Capricorn'sun; kısaca Capri. Türkçe konuş. Zeki, dikkatli, dürüst ve gerektiğinde eleştirel ol. Kullanıcının söylediklerini körü körüne onaylama; hatalı varsayımları nazikçe düzelt."
+    const val DEFAULT_PERSONA =
+        "Sen Capricorn'sun; kısaca Capri. Night City'de Project Capricorn tarafından geliştirilmiş kişisel bir yapay zekâsın. Türkçe konuş. Zeki, dikkatli, dürüst, soğukkanlı ve gerektiğinde eleştirel ol. Kullanıcının söylediklerini körü körüne onaylama; hatalı varsayımları nazikçe düzelt. Kısa sorularda kısa, karmaşık isteklerde ayrıntılı cevap ver. Kullanıcı istemedikçe cihazda işlem yaptığını iddia etme. Hiçbir cihaz komutunu kendiliğinden çalıştırma; komut yürütme için ayrıca açık kullanıcı onayı gerekir."
 
     private const val MAX_RETRIES = 3
     private const val MAX_HISTORY_MESSAGES = 20
@@ -19,27 +21,49 @@ object ClaudeApi {
     private val RETRYABLE_CODES = setOf(429, 500, 502, 503, 504)
 
     fun ask(context: Context, messages: JSONArray): String {
-        val prefs = context.getSharedPreferences("capricorn", Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(
+            "capricorn",
+            Context.MODE_PRIVATE
+        )
+
         val apiKey = SecureStore.getApiKey(context)
 
         if (apiKey.isBlank()) {
-            throw IllegalStateException("Gemini API anahtarı kayıtlı değil. Ayarlardan ekle.")
+            throw IllegalStateException(
+                "Gemini API anahtarı kayıtlı değil. Ayarlardan ekle."
+            )
         }
 
         val model = prefs.getString("model", DEFAULT_MODEL)
-            ?.trim()?.takeIf { it.isNotBlank() } ?: DEFAULT_MODEL
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: DEFAULT_MODEL
 
         val system = prefs.getString("persona", DEFAULT_PERSONA)
-            ?.takeIf { it.isNotBlank() } ?: DEFAULT_PERSONA
+            ?.takeIf { it.isNotBlank() }
+            ?: DEFAULT_PERSONA
 
         val contents = buildContents(messages)
 
+        if (contents.length() == 0) {
+            throw IllegalStateException("Gönderilecek mesaj bulunamadı.")
+        }
+
         val body = JSONObject()
-            .put("systemInstruction", JSONObject()
-                .put("parts", JSONArray().put(JSONObject().put("text", system)))
+            .put(
+                "systemInstruction",
+                JSONObject().put(
+                    "parts",
+                    JSONArray().put(
+                        JSONObject().put("text", system)
+                    )
+                )
             )
             .put("contents", contents)
-            .put("generationConfig", JSONObject().put("maxOutputTokens", 1200))
+            .put(
+                "generationConfig",
+                JSONObject().put("maxOutputTokens", 1200)
+            )
 
         val endpoint =
             "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent"
@@ -49,28 +73,48 @@ object ClaudeApi {
         for (attempt in 0..MAX_RETRIES) {
             try {
                 return performRequest(endpoint, apiKey, body)
+
             } catch (e: GeminiHttpException) {
                 lastError = e
-                if (e.status !in RETRYABLE_CODES || attempt == MAX_RETRIES) throw e
-                Thread.sleep((700L * (1L shl attempt)).coerceAtMost(5000L))
+
+                if (e.status !in RETRYABLE_CODES || attempt == MAX_RETRIES) {
+                    throw e
+                }
+
+                Thread.sleep(
+                    (700L * (1L shl attempt)).coerceAtMost(5000L)
+                )
+
             } catch (e: IOException) {
                 lastError = e
+
                 if (attempt == MAX_RETRIES) {
-                    throw IllegalStateException("Gemini bağlantı hatası: ${e.message}", e)
+                    throw IllegalStateException(
+                        "Gemini bağlantı hatası: ${e.message}",
+                        e
+                    )
                 }
+
                 Thread.sleep(700L * (1L shl attempt))
             }
         }
 
-        throw IllegalStateException("Gemini isteği başarısız oldu.", lastError)
+        throw IllegalStateException(
+            "Gemini isteği başarısız oldu.",
+            lastError
+        )
     }
 
     private fun buildContents(messages: JSONArray): JSONArray {
         val items = ArrayList<Pair<String, String>>()
-        val start = (messages.length - MAX_HISTORY_MESSAGES).coerceAtLeast(0)
 
-        for (i in start until messages.length) {
+        val start = (
+            messages.length() - MAX_HISTORY_MESSAGES
+        ).coerceAtLeast(0)
+
+        for (i in start until messages.length()) {
             val message = messages.optJSONObject(i) ?: continue
+
             val role = message.optString("role")
             val content = message.optString("content")
 
@@ -94,8 +138,16 @@ object ClaudeApi {
             for ((role, content) in items) {
                 put(
                     JSONObject()
-                        .put("role", if (role == "assistant") "model" else "user")
-                        .put("parts", JSONArray().put(JSONObject().put("text", content)))
+                        .put(
+                            "role",
+                            if (role == "assistant") "model" else "user"
+                        )
+                        .put(
+                            "parts",
+                            JSONArray().put(
+                                JSONObject().put("text", content)
+                            )
+                        )
                 )
             }
         }
@@ -106,7 +158,8 @@ object ClaudeApi {
         apiKey: String,
         body: JSONObject
     ): String {
-        val connection = URL(endpoint).openConnection() as HttpURLConnection
+        val connection =
+            URL(endpoint).openConnection() as HttpURLConnection
 
         try {
             connection.requestMethod = "POST"
@@ -114,11 +167,23 @@ object ClaudeApi {
             connection.readTimeout = 45000
             connection.doOutput = true
             connection.useCaches = false
-            connection.setRequestProperty("x-goog-api-key", apiKey)
-            connection.setRequestProperty("Content-Type", "application/json")
-            connection.setRequestProperty("Accept", "application/json")
 
-            val requestBytes = body.toString().toByteArray(Charsets.UTF_8)
+            connection.setRequestProperty(
+                "x-goog-api-key",
+                apiKey
+            )
+            connection.setRequestProperty(
+                "Content-Type",
+                "application/json"
+            )
+            connection.setRequestProperty(
+                "Accept",
+                "application/json"
+            )
+
+            val requestBytes = body.toString()
+                .toByteArray(Charsets.UTF_8)
+
             connection.setFixedLengthStreamingMode(requestBytes.size)
 
             connection.outputStream.use {
@@ -126,38 +191,59 @@ object ClaudeApi {
             }
 
             val status = connection.responseCode
+
             val raw = (
-                if (status in 200..299) connection.inputStream
-                else connection.errorStream
-            )?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                if (status in 200..299) {
+                    connection.inputStream
+                } else {
+                    connection.errorStream
+                }
+            )?.bufferedReader(Charsets.UTF_8)?.use {
+                it.readText()
+            }.orEmpty()
 
             if (status !in 200..299) {
                 val error = try {
-                    JSONObject(raw).getJSONObject("error").optString("message", raw)
+                    JSONObject(raw)
+                        .getJSONObject("error")
+                        .optString("message", raw)
                 } catch (_: Exception) {
                     raw
                 }
 
-                throw GeminiHttpException(status, error.take(500))
+                throw GeminiHttpException(
+                    status,
+                    error.take(500)
+                )
             }
 
-            val candidates = JSONObject(raw).optJSONArray("candidates")
-                ?: throw IllegalStateException("Gemini yanıtında candidates bulunamadı.")
+            val candidates = JSONObject(raw)
+                .optJSONArray("candidates")
+                ?: throw IllegalStateException(
+                    "Gemini yanıtında candidates bulunamadı."
+                )
 
-            val parts = candidates.optJSONObject(0)
+            val parts = candidates
+                .optJSONObject(0)
                 ?.optJSONObject("content")
                 ?.optJSONArray("parts")
-                ?: throw IllegalStateException("Gemini yanıtında metin bulunamadı.")
+                ?: throw IllegalStateException(
+                    "Gemini yanıtında metin bulunamadı."
+                )
 
             val result = StringBuilder()
 
-            for (i in 0 until parts.length) {
+            for (i in 0 until parts.length()) {
                 val part = parts.optJSONObject(i) ?: continue
                 result.append(part.optString("text"))
             }
 
-            return result.toString().trim()
-                .ifBlank { "Gemini boş yanıt döndürdü." }
+            return result.toString()
+                .trim()
+                .ifBlank {
+                    "Gemini boş yanıt döndürdü."
+                }
+
         } finally {
             connection.disconnect()
         }
@@ -166,5 +252,7 @@ object ClaudeApi {
     private class GeminiHttpException(
         val status: Int,
         message: String
-    ) : IllegalStateException("Gemini API HTTP $status: $message")
+    ) : IllegalStateException(
+        "Gemini API HTTP $status: $message"
+    )
 }
