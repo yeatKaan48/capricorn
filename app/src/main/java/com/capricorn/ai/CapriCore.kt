@@ -11,7 +11,7 @@ object CapriCore {
     private const val KEY_RESPONSE_STYLE = "response_style"
     private const val KEY_CRITICAL = "critical_thinking"
 
-    const val DEFAULT_PERSONA = """
+    val DEFAULT_PERSONA = """
 Sen Capri'sin; Capricorn sisteminin kişisel yapay zekâsısın.
 Night City atmosferinden ilham alan özgün bir karaktere ve tutarlı bir kişiliğe sahipsin.
 
