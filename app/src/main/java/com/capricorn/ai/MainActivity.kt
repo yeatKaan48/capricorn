@@ -1,8 +1,6 @@
 package com.capricorn.ai
 
 import android.app.Activity
-import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
 import android.content.Intent
 import android.graphics.Typeface
 import android.media.MediaPlayer
@@ -15,6 +13,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : Activity() {
 
@@ -23,7 +22,7 @@ class MainActivity : Activity() {
     private lateinit var input: EditText
     private lateinit var sendButton: TextView
     private lateinit var state: TextView
-    private lateinit var orb: OrbView
+    private lateinit var capri: CapriCharacterView
 
     private val executor = Executors.newSingleThreadExecutor()
     private var history = JSONArray()
@@ -31,6 +30,7 @@ class MainActivity : Activity() {
     private var mediaPlayer: MediaPlayer? = null
     private var speakReplies = false
     private var waiting = false
+    private val voiceRequestId = AtomicInteger(0)
 
     private fun prefs() =
         getSharedPreferences("capricorn", MODE_PRIVATE)
@@ -203,7 +203,10 @@ class MainActivity : Activity() {
                     )
 
                     tapFeedback(this)
-                    if (!speakReplies) stopVoice()
+                    if (!speakReplies) {
+                        voiceRequestId.incrementAndGet()
+                        stopVoice()
+                    }
                 }
             },
             LinearLayout.LayoutParams(0, dp(38), 1f)
@@ -221,61 +224,6 @@ class MainActivity : Activity() {
         root.addView(navLabel)
         root.addView(nav)
 
-        val orbPanel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            background = Theme.panel(
-                this@MainActivity,
-                0xFF17404B.toInt(),
-                0xFF080E17.toInt()
-            )
-            setPadding(dp(8), dp(4), dp(8), dp(4))
-        }
-
-        val orbTitle = TextView(this).apply {
-            text = "◈  NEURAL CORE     //     LIVE SYSTEM"
-            setTextColor(Theme.CYAN)
-            textSize = 9f
-            typeface = Typeface.MONOSPACE
-            letterSpacing = 0.13f
-            gravity = Gravity.CENTER
-            setPadding(0, dp(5), 0, dp(2))
-        }
-
-        orbPanel.addView(
-            orbTitle,
-            LinearLayout.LayoutParams(-1, dp(22))
-        )
-
-        orb = OrbView(this).apply {
-            state = 0
-            contentDescription = "Capri durumu"
-        }
-
-        orbPanel.addView(
-            orb,
-            LinearLayout.LayoutParams(-1, dp(154))
-        )
-
-        root.addView(
-            orbPanel,
-            LinearLayout.LayoutParams(-1, dp(188)).apply {
-                bottomMargin = dp(10)
-            }
-        )
-
-        ObjectAnimator.ofFloat(
-            orbPanel,
-            "alpha",
-            0.88f,
-            1f
-        ).apply {
-            duration = 1800
-            repeatMode = ValueAnimator.REVERSE
-            repeatCount = ValueAnimator.INFINITE
-            start()
-        }
-
         messagesBox = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(8), dp(12), dp(8), dp(12))
@@ -286,22 +234,50 @@ class MainActivity : Activity() {
             clipToPadding = false
             background = Theme.panel(
                 this@MainActivity,
-                0xFF18313D.toInt(),
-                0xFF070B12.toInt()
+                Theme.BORDER,
+                Theme.PANEL_DARK
             )
             addView(messagesBox)
         }
 
-        val chatHeader = TextView(this).apply {
-            text = "◈  COMMUNICATION FEED     //     SECURE LINK"
-            setTextColor(Theme.CYAN)
-            textSize = 9f
-            typeface = Typeface.MONOSPACE
-            letterSpacing = 0.08f
-            setPadding(dp(5), dp(7), dp(5), dp(7))
+        val chatHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(10), dp(3), dp(8), dp(3))
+            background = Theme.panel(
+                this@MainActivity,
+                Theme.BORDER,
+                Theme.PANEL
+            )
         }
 
-        root.addView(chatHeader)
+        val chatTitle = TextView(this).apply {
+            text = "◈  COMMUNICATION FEED\nSECURE LINK  //  CAPRI ONLINE"
+            setTextColor(Theme.PINK)
+            textSize = 10f
+            typeface = Typeface.MONOSPACE
+            letterSpacing = 0.06f
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        chatHeader.addView(
+            chatTitle,
+            LinearLayout.LayoutParams(0, -1, 1f)
+        )
+
+        capri = CapriCharacterView(this)
+
+        chatHeader.addView(
+            capri,
+            LinearLayout.LayoutParams(dp(76), dp(76))
+        )
+
+        root.addView(
+            chatHeader,
+            LinearLayout.LayoutParams(-1, dp(82)).apply {
+                bottomMargin = dp(5)
+            }
+        )
         root.addView(
             scroll,
             LinearLayout.LayoutParams(-1, 0, 1f)
@@ -336,8 +312,8 @@ class MainActivity : Activity() {
             setPadding(dp(14), dp(10), dp(14), dp(10))
             background = Theme.panel(
                 this@MainActivity,
-                0xFF245B6A.toInt(),
-                0xFF0B1420.toInt()
+                Theme.BORDER,
+                Theme.PANEL
             )
             setSingleLine(false)
             minLines = 1
@@ -356,8 +332,8 @@ class MainActivity : Activity() {
 
         composer.background = Theme.panel(
             this,
-            0xFF17313D.toInt(),
-            0xFF080E17.toInt()
+            Theme.BORDER,
+            Theme.PANEL_DARK
         )
         composer.setPadding(
             dp(7),
@@ -505,14 +481,14 @@ class MainActivity : Activity() {
             background = Theme.panel(
                 this@MainActivity,
                 if (isUser) {
-                    0xFF71304B.toInt()
+                    0xFFFF2E70.toInt()
                 } else {
-                    0xFF176071.toInt()
+                    0xFF65203C.toInt()
                 },
                 if (isUser) {
-                    0xFF170D18.toInt()
+                    0xFF24101A.toInt()
                 } else {
-                    0xFF091720.toInt()
+                    0xFF140A12.toInt()
                 }
             )
             setPadding(dp(3), dp(3), dp(12), dp(3))
@@ -632,7 +608,7 @@ class MainActivity : Activity() {
         waiting = true
         sendButton.isEnabled = false
         state.text = "◉ PROCESSING"
-        orb.state = 1
+        capri.setState(CapriCharacterView.THINKING)
 
         executor.execute {
             val answer = try {
@@ -645,7 +621,7 @@ class MainActivity : Activity() {
                 waiting = false
                 sendButton.isEnabled = true
                 state.text = "● SYSTEM READY"
-                orb.state = 0
+                capri.setState(CapriCharacterView.IDLE)
                 placeholder.text = answer
 
                 if (!answer.startsWith("ERROR:")) {
@@ -675,6 +651,8 @@ class MainActivity : Activity() {
     }
 
     private fun synthesizeVoice(text: String) {
+        val requestId = voiceRequestId.incrementAndGet()
+
         executor.execute {
             try {
                 val audioFile = FishAudioApi.synthesize(
@@ -683,13 +661,13 @@ class MainActivity : Activity() {
                 )
 
                 runOnUiThread {
-                    if (!isFinishing && speakReplies) {
+                    if (!isFinishing && speakReplies && requestId == voiceRequestId.get()) {
                         playVoice(audioFile)
                     }
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    if (speakReplies && !isFinishing) {
+                    if (speakReplies && !isFinishing && requestId == voiceRequestId.get()) {
                         Toast.makeText(
                             this,
                             "Fish Audio hatası: ${e.message}",
@@ -715,7 +693,7 @@ class MainActivity : Activity() {
             player.setOnPreparedListener {
                 if (speakReplies && mediaPlayer === it) {
                     it.start()
-                    orb.state = 3
+                    capri.setState(CapriCharacterView.SPEAKING)
                     state.text = "◉ VOICE ACTIVE"
                 } else {
                     it.release()
@@ -732,7 +710,7 @@ class MainActivity : Activity() {
                 }
 
                 if (!waiting) {
-                    orb.state = 0
+                    capri.setState(CapriCharacterView.IDLE)
                     state.text = "● SYSTEM READY"
                 }
             }
@@ -745,7 +723,7 @@ class MainActivity : Activity() {
                 }
 
                 if (!waiting) {
-                    orb.state = 0
+                    capri.setState(CapriCharacterView.IDLE)
                     state.text = "● SYSTEM READY"
                 }
 
@@ -786,7 +764,9 @@ class MainActivity : Activity() {
     }
 
     private fun startVoiceInput() {
-        orb.state = 2
+        voiceRequestId.incrementAndGet()
+        stopVoice()
+        capri.setState(CapriCharacterView.LISTENING)
         state.text = "◉ LISTENING"
 
         val intent = Intent(
@@ -809,7 +789,7 @@ class MainActivity : Activity() {
         try {
             startActivityForResult(intent, 41)
         } catch (_: Exception) {
-            orb.state = 0
+            capri.setState(CapriCharacterView.IDLE)
             state.text = "● SYSTEM READY"
 
             Toast.makeText(
@@ -833,7 +813,7 @@ class MainActivity : Activity() {
         )
 
         if (requestCode == 41) {
-            orb.state = 0
+            capri.setState(CapriCharacterView.IDLE)
             state.text = "● SYSTEM READY"
 
             if (resultCode == RESULT_OK) {
@@ -846,7 +826,19 @@ class MainActivity : Activity() {
         }
     }
 
+    override fun onPause() {
+        if (::capri.isInitialized) capri.stopAnimation()
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::capri.isInitialized) capri.resumeAnimation()
+    }
+
     override fun onDestroy() {
+        voiceRequestId.incrementAndGet()
+        if (::capri.isInitialized) capri.stopAnimation()
         executor.shutdownNow()
         stopVoice()
         super.onDestroy()

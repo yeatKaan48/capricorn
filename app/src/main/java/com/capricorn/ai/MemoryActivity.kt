@@ -21,7 +21,7 @@ class MemoryActivity : Activity() {
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(28), dp(16), dp(20))
+            setPadding(dp(18), dp(26), dp(18), dp(20))
             setBackgroundColor(Theme.BG)
         }
 
@@ -56,9 +56,11 @@ class MemoryActivity : Activity() {
                 InputType.TYPE_TEXT_FLAG_MULTI_LINE or
                 InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             setPadding(dp(12), dp(12), dp(12), dp(12))
-            background = Theme.panel(
+            background = Theme.gradientPanel(
                 this@MemoryActivity,
-                Theme.BORDER
+                Theme.BORDER,
+                Theme.PANEL,
+                Theme.PANEL_DARK
             )
         }
 
@@ -185,11 +187,14 @@ class MemoryActivity : Activity() {
 
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(12), dp(12), dp(12), dp(12))
-                background = Theme.panel(
+                setPadding(dp(14), dp(14), dp(14), dp(14))
+                background = Theme.gradientPanel(
                     this@MemoryActivity,
-                    Theme.BORDER
+                    Theme.BORDER,
+                    Theme.PANEL,
+                    Theme.PANEL_DARK
                 )
+                elevation = dp(2).toFloat()
             }
 
             card.addView(TextView(this).apply {
@@ -203,7 +208,8 @@ class MemoryActivity : Activity() {
                 text = value
                 textSize = 14f
                 setTextColor(Theme.TEXT)
-                setPadding(0, dp(8), 0, dp(12))
+                setLineSpacing(dp(3).toFloat(), 1f)
+                setPadding(0, dp(9), 0, dp(14))
             })
 
             val buttons = LinearLayout(this).apply {

@@ -51,8 +51,11 @@ class CapriCharacterView(context: Context) : ImageView(context) {
                     context.assets,
                     "sprites/$fileName"
                 )
+                (drawable as? AnimatedImageDrawable)?.stop()
+
                 val image = ImageDecoder.decodeDrawable(source)
                 setImageDrawable(image)
+                visibility = View.VISIBLE
 
                 if (image is AnimatedImageDrawable) {
                     image.repeatCount = AnimatedImageDrawable.REPEAT_INFINITE

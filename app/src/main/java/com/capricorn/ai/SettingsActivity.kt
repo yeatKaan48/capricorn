@@ -11,6 +11,7 @@ import android.widget.TextView
 import android.widget.Toast
 
 class SettingsActivity : Activity() {
+
     private lateinit var apiKey: EditText
     private lateinit var fishApiKey: EditText
     private lateinit var model: EditText
@@ -37,11 +38,11 @@ class SettingsActivity : Activity() {
 
         content.addView(TextView(this).apply {
             text = "◈  CAPRI // CONTROL CENTER"
-            textSize = 19f
-            setTextColor(Theme.CYAN)
+            textSize = 20f
+            setTextColor(Theme.PINK)
             typeface = android.graphics.Typeface.MONOSPACE
             letterSpacing = 0.07f
-            setPadding(0, dp(4), 0, dp(5))
+            setPadding(0, dp(4), 0, dp(6))
         })
 
         content.addView(TextView(this).apply {
@@ -53,80 +54,88 @@ class SettingsActivity : Activity() {
             setPadding(0, 0, 0, dp(22))
         })
 
-        content.addView(section("01  //  AI CONNECTION", Theme.CYAN))
-        content.addView(label("GOOGLE GEMINI API KEY"))
+        content.addView(sectionPanel("01  //  AI CONNECTION", Theme.PINK) {
+            addView(label("GOOGLE GEMINI API KEY"), fieldParams())
 
-        apiKey = field(
-            SecureStore.getApiKey(this),
-            "Google AI Studio API key",
-            1
-        ).apply {
-            inputType = InputType.TYPE_CLASS_TEXT or
-                InputType.TYPE_TEXT_VARIATION_PASSWORD
-        }
-        content.addView(apiKey)
-
-        content.addView(section("02  //  VOICE SYSTEM", Theme.PINK))
-        content.addView(label("FISH AUDIO API KEY"))
-
-        fishApiKey = field(
-            SecureStore.getFishApiKey(this),
-            "Fish Audio API key",
-            1
-        ).apply {
-            inputType = InputType.TYPE_CLASS_TEXT or
-                InputType.TYPE_TEXT_VARIATION_PASSWORD
-        }
-        content.addView(fishApiKey)
-
-        content.addView(label("MODEL ID"))
-        model = field(
-            p.getString("model", ClaudeApi.DEFAULT_MODEL)
-                ?: ClaudeApi.DEFAULT_MODEL,
-            "Gemini model ID",
-            1
-        )
-        content.addView(model)
-
-        content.addView(section("03  //  PERSONALITY CORE", Theme.YELLOW))
-        content.addView(label("CAPRI PERSONALITY / SYSTEM PROMPT"))
-
-        persona = field(
-            p.getString("persona", CapriCore.DEFAULT_PERSONA)
-                ?: CapriCore.DEFAULT_PERSONA,
-            "Capri kişiliği",
-            9
-        )
-        content.addView(persona)
-
-        content.addView(
-            Theme.chip(this, "RESTORE DEFAULT PERSONA", Theme.YELLOW).apply {
-                setOnClickListener {
-                    persona.setText(CapriCore.DEFAULT_PERSONA)
-                }
-            },
-            LinearLayout.LayoutParams(-1, -2).apply {
-                topMargin = dp(10)
+            apiKey = field(
+                SecureStore.getApiKey(this@SettingsActivity),
+                "Google AI Studio API key",
+                1
+            ).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or
+                    InputType.TYPE_TEXT_VARIATION_PASSWORD
             }
-        )
+            addView(apiKey, inputParams())
+
+            addView(label("MODEL ID"), fieldParams())
+
+            model = field(
+                p.getString("model", ClaudeApi.DEFAULT_MODEL)
+                    ?: ClaudeApi.DEFAULT_MODEL,
+                "Gemini model ID",
+                1
+            )
+            addView(model, inputParams())
+        }, panelParams())
+
+        content.addView(sectionPanel("02  //  VOICE SYSTEM", Theme.PINK) {
+            addView(label("FISH AUDIO API KEY"), fieldParams())
+
+            fishApiKey = field(
+                SecureStore.getFishApiKey(this@SettingsActivity),
+                "Fish Audio API key",
+                1
+            ).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or
+                    InputType.TYPE_TEXT_VARIATION_PASSWORD
+            }
+            addView(fishApiKey, inputParams())
+        }, panelParams())
+
+        content.addView(sectionPanel("03  //  PERSONALITY CORE", Theme.YELLOW) {
+            addView(label("CAPRI PERSONALITY / SYSTEM PROMPT"), fieldParams())
+
+            persona = field(
+                p.getString("persona", CapriCore.DEFAULT_PERSONA)
+                    ?: CapriCore.DEFAULT_PERSONA,
+                "Capri kişiliği",
+                9
+            )
+            addView(persona, inputParams())
+
+            addView(
+                Theme.chip(
+                    this@SettingsActivity,
+                    "RESTORE DEFAULT PERSONA",
+                    Theme.YELLOW
+                ).apply {
+                    setOnClickListener {
+                        persona.setText(CapriCore.DEFAULT_PERSONA)
+                    }
+                },
+                LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = dp(12)
+                }
+            )
+        }, panelParams())
 
         content.addView(
-            Theme.chip(this, "SAVE CONFIGURATION", Theme.CYAN).apply {
+            Theme.chip(this, "SAVE CONFIGURATION", Theme.PINK).apply {
                 setOnClickListener {
                     if (save()) finish()
                 }
             },
             LinearLayout.LayoutParams(-1, -2).apply {
-                topMargin = dp(10)
+                topMargin = dp(4)
             }
         )
 
         content.addView(
-            Theme.chip(this, "BACK", Theme.PINK).apply {
+            Theme.chip(this, "BACK", Theme.YELLOW).apply {
                 setOnClickListener { finish() }
             },
             LinearLayout.LayoutParams(-1, -2).apply {
-                topMargin = dp(8)
+                topMargin = dp(10)
             }
         )
 
@@ -134,31 +143,48 @@ class SettingsActivity : Activity() {
             text = "API anahtarları Android Keystore ile cihaz üzerinde şifrelenerek saklanır. Gemini ve Fish Audio kullanımı ilgili hesaplarının kullanım koşullarına ve limitlerine bağlıdır."
             textSize = 11f
             setTextColor(Theme.MUTED)
-            setPadding(0, dp(16), 0, 0)
+            setPadding(0, dp(18), 0, 0)
         })
 
         setContentView(ScrollView(this).apply {
             setBackgroundColor(Theme.BG)
+            isFillViewport = true
             addView(content)
         })
     }
 
-    private fun section(value: String, accent: Int) =
-        TextView(this).apply {
-            text = value
-            textSize = 10f
+    private fun sectionPanel(
+        title: String,
+        accent: Int,
+        contentBlock: LinearLayout.() -> Unit
+    ): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(15), dp(14), dp(15), dp(16))
+        background = Theme.gradientPanel(
+            this@SettingsActivity,
+            Theme.BORDER,
+            Theme.PANEL,
+            Theme.PANEL_DARK
+        )
+
+        addView(TextView(this@SettingsActivity).apply {
+            text = title
+            textSize = 11f
             setTextColor(accent)
             typeface = android.graphics.Typeface.MONOSPACE
             letterSpacing = 0.12f
-            setPadding(0, dp(22), 0, dp(9))
-        }
+        })
+
+        contentBlock()
+    }
 
     private fun label(value: String) =
         TextView(this).apply {
             text = "// $value"
-            textSize = 11f
+            textSize = 10f
             setTextColor(Theme.YELLOW)
             typeface = android.graphics.Typeface.MONOSPACE
+            letterSpacing = 0.04f
         }
 
     private fun field(
@@ -173,15 +199,34 @@ class SettingsActivity : Activity() {
         textSize = 13f
         background = Theme.panel(
             this@SettingsActivity,
-            0xFF245B6A.toInt(),
-            0xFF0B1420.toInt()
+            Theme.BORDER,
+            Theme.BG
         )
         setPadding(dp(14), dp(12), dp(14), dp(12))
         letterSpacing = 0.02f
         minLines = lines
         maxLines = if (lines > 1) 16 else 1
-        gravity = if (lines > 1) Gravity.TOP else Gravity.CENTER_VERTICAL
+        gravity = if (lines > 1) {
+            Gravity.TOP
+        } else {
+            Gravity.CENTER_VERTICAL
+        }
     }
+
+    private fun fieldParams() =
+        LinearLayout.LayoutParams(-1, -2).apply {
+            topMargin = dp(13)
+        }
+
+    private fun inputParams() =
+        LinearLayout.LayoutParams(-1, -2).apply {
+            topMargin = dp(7)
+        }
+
+    private fun panelParams() =
+        LinearLayout.LayoutParams(-1, -2).apply {
+            bottomMargin = dp(14)
+        }
 
     private fun save(): Boolean {
         return try {
@@ -213,6 +258,7 @@ class SettingsActivity : Activity() {
                 "Ayarlar kaydedildi.",
                 Toast.LENGTH_SHORT
             ).show()
+
             true
         } catch (e: Exception) {
             Toast.makeText(
@@ -220,6 +266,7 @@ class SettingsActivity : Activity() {
                 "Kaydetme hatası: ${e.message}",
                 Toast.LENGTH_LONG
             ).show()
+
             false
         }
     }
